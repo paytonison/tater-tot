@@ -22,11 +22,13 @@ The project includes:
 - binary checkpoint save/load
 - autoregressive text generation
 
-## Development Note
+## Agent-Assisted One-Shot Development
 
-Tater Tot was developed collaboratively with OpenAI Codex and ChatGPT. The first
-flattened-context MLP version was built in a one-shot pass, and the later
-Transformer variant was also implemented in a single focused one-shot pass.
+Tater Tot is also an experiment in agent-assisted programming. The initial version of the project was generated in a single Codex pass from high-level project instructions, and the later transformer upgrade was likewise produced as a one-shot architectural expansion.
+
+The goal is not to present the code as hand-authored line by line. Instead, this repository documents a workflow: human specification, agentic implementation, human review, debugging, training, evaluation, and iterative refinement.
+
+This makes Tater Tot both a small language-model implementation and a case study in how coding agents can compress the distance between concept and working artifact. The human role shifts away from raw syntax production and toward architecture, constraint-setting, supervision, interpretation, and experimental design.
 
 ## Architecture
 
