@@ -22,6 +22,12 @@ The project includes:
 - binary checkpoint save/load
 - autoregressive text generation
 
+## Development Note
+
+Tater Tot was developed collaboratively with OpenAI Codex and ChatGPT. The first
+flattened-context MLP version was built in a one-shot pass, and the later
+Transformer variant was also implemented in a single focused one-shot pass.
+
 ## Architecture
 
 Tater Tot is a character-level autoregressive decoder-only Transformer. Raw text
