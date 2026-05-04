@@ -312,3 +312,36 @@ Reasonable next improvements:
 - optional CMake cleanup and install targets
 - richer sampling controls such as top-p and repetition penalties
 - a small benchmark corpus and repeatable benchmark script
+
+Longer-term experimental roadmap:
+
+- **C++ Tater Tot baseline:** continue developing the current from-scratch C++ implementation as the primary systems-level reference model. The purpose is to keep the Transformer machinery visible, inspectable, and close to the hardware.
+
+- **Python Tater Tot baseline:** build a matching Python version using the same dataset, model shape, tokenizer assumptions, training schedule, and generation settings. This provides a conventional high-level implementation to compare against the C++ version.
+
+- **Custom performance benchmark:** create a repeatable benchmark suite that compares the C++ and Python implementations across:
+  - training speed
+  - inference speed
+  - memory use
+  - tokens or characters generated per second
+  - validation loss / perplexity
+  - qualitative generation samples from matched prompts
+
+  The goal is not merely to ask which language is faster in the abstract, but to measure which implementation produces better practical results under comparable constraints.
+
+- **Handmade MoE experiment:** prototype a small mixture-of-experts system using existing Gemma-family models as external expert modules. Instead of training one monolithic model from scratch, the system would stitch together multiple specialized Gemma instances and route tasks between them.
+
+- **Mediator model:** add a central mediator model that sits between the user/task and the expert models. The mediator would decide which expert or combination of experts should handle a request, merge their outputs, resolve disagreements, and produce the final response.
+
+- **Lexical / definition expert:** explore a dedicated expert for words, definitions, morphology, etymology, and sense disambiguation. This connects to the broader idea of using dictionary-like knowledge not as a literal embedding matrix, but as a specialized semantic subsystem.
+
+- **MoE evaluation harness:** design tests that compare the handmade MoE against single-model baselines on:
+  - factual consistency
+  - definition accuracy
+  - reasoning quality
+  - code generation
+  - stylistic control
+  - routing accuracy
+  - disagreement resolution
+
+This roadmap turns Tater Tot from a single tiny Transformer into a staged research artifact: first a C++ implementation, then a Python comparison target, then a controlled benchmark, and finally a handmade MoE architecture where multiple existing models act as experts coordinated by a mediator.
