@@ -9,7 +9,8 @@
 namespace tater {
 namespace {
 
-constexpr char kMagic[] = "TATER_TOT_CHECKPOINT_V1";
+constexpr char kMagic[] = "TATER_TOT_CHECKPOINT_V2_TRANSFORMER";
+constexpr char kV1Magic[] = "TATER_TOT_CHECKPOINT_V1";
 
 template <typename T>
 void write_pod(std::ostream& out, const T& value) {
@@ -109,6 +110,8 @@ void save_checkpoint(const std::string& path, const TinyCharModel& model, const 
     write_pod(out, static_cast<std::uint64_t>(model.config().context));
     write_pod(out, static_cast<std::uint64_t>(model.config().embed));
     write_pod(out, static_cast<std::uint64_t>(model.config().hidden));
+    write_pod(out, static_cast<std::uint64_t>(model.config().layers));
+    write_pod(out, static_cast<std::uint64_t>(model.config().heads));
 
     std::string chars(vocab.chars.begin(), vocab.chars.end());
     write_string(out, chars);
@@ -128,6 +131,11 @@ LoadedCheckpoint load_checkpoint(const std::string& path) {
 
     const std::string magic = read_string(in);
     if (magic != kMagic) {
+        if (magic == kV1Magic) {
+            throw std::runtime_error(
+                "checkpoint is an old V1 MLP checkpoint and cannot be loaded into the "
+                "Transformer model");
+        }
         throw std::runtime_error("not a Tater Tot checkpoint: " + path);
     }
 
@@ -136,6 +144,8 @@ LoadedCheckpoint load_checkpoint(const std::string& path) {
     config.context = static_cast<std::size_t>(read_pod<std::uint64_t>(in));
     config.embed = static_cast<std::size_t>(read_pod<std::uint64_t>(in));
     config.hidden = static_cast<std::size_t>(read_pod<std::uint64_t>(in));
+    config.layers = static_cast<std::size_t>(read_pod<std::uint64_t>(in));
+    config.heads = static_cast<std::size_t>(read_pod<std::uint64_t>(in));
 
     const std::string chars = read_string(in);
     Vocabulary vocab;

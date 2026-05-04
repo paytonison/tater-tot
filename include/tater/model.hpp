@@ -14,8 +14,10 @@ namespace tater {
 struct ModelConfig {
     std::size_t vocab_size = 0;
     std::size_t context = 32;
-    std::size_t embed = 32;
-    std::size_t hidden = 64;
+    std::size_t layers = 2;
+    std::size_t heads = 4;
+    std::size_t embed = 64;
+    std::size_t hidden = 128;
 };
 
 struct GenerationOptions {
@@ -40,12 +42,32 @@ private:
     ModelConfig config_;
 
 public:
+    struct TransformerBlock {
+        Tensor ln1_gamma;
+        Tensor ln1_beta;
+        Tensor q_w;
+        Tensor q_b;
+        Tensor k_w;
+        Tensor k_b;
+        Tensor v_w;
+        Tensor v_b;
+        Tensor out_w;
+        Tensor out_b;
+        Tensor ln2_gamma;
+        Tensor ln2_beta;
+        Tensor ff1_w;
+        Tensor ff1_b;
+        Tensor ff2_w;
+        Tensor ff2_b;
+    };
+
     Tensor token_embedding;
     Tensor positional_embedding;
-    Tensor w1;
-    Tensor b1;
-    Tensor w2;
-    Tensor b2;
+    std::vector<TransformerBlock> blocks;
+    Tensor ln_f_gamma;
+    Tensor ln_f_beta;
+    Tensor lm_head_w;
+    Tensor lm_head_b;
 };
 
 int sample_from_logits(const std::vector<double>& logits,
@@ -66,4 +88,3 @@ double estimate_loss(const TinyCharModel& model,
                      std::mt19937& rng);
 
 } // namespace tater
-

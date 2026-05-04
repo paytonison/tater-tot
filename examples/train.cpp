@@ -38,7 +38,7 @@ double double_option(const std::vector<std::string>& args,
 
 void print_usage() {
     std::cerr << "Usage: tater_train --data data/input.txt --steps 1000 "
-                 "--context 64 --embed 64 [--hidden 128] [--batch 16] "
+                 "--context 64 --embed 64 [--layers 2] [--heads 4] [--hidden 256] [--batch 16] "
                  "[--lr 0.003] [--checkpoint checkpoints/model.bin]\n";
 }
 
@@ -56,7 +56,9 @@ int main(int argc, char** argv) {
         const std::size_t steps = size_option(args, "--steps", 1000);
         const std::size_t context = size_option(args, "--context", 64);
         const std::size_t embed = size_option(args, "--embed", 64);
-        const std::size_t hidden = size_option(args, "--hidden", embed * 2);
+        const std::size_t layers = size_option(args, "--layers", 2);
+        const std::size_t heads = size_option(args, "--heads", 4);
+        const std::size_t hidden = size_option(args, "--hidden", embed * 4);
         const std::size_t batch_size = size_option(args, "--batch", 16);
         const std::size_t print_every = size_option(args, "--print-every", 50);
         const std::size_t sample_every = size_option(args, "--sample-every", 200);
@@ -71,11 +73,13 @@ int main(int argc, char** argv) {
         tater::Vocabulary vocab = tater::Vocabulary::from_text(text);
         std::vector<int> encoded = vocab.encode(text);
         auto [train_data, valid_data] =
-            tater::train_validation_split(encoded, 0.9, context + 1);
+            tater::train_validation_split(encoded, 0.9, context + 2);
 
         tater::ModelConfig config;
         config.vocab_size = vocab.size();
         config.context = context;
+        config.layers = layers;
+        config.heads = heads;
         config.embed = embed;
         config.hidden = hidden;
 
@@ -87,8 +91,8 @@ int main(int argc, char** argv) {
                   << "  data: " << data_path << "\n"
                   << "  chars: " << text.size() << "\n"
                   << "  vocab: " << vocab.size() << "\n"
-                  << "  context/embed/hidden: " << context << "/" << embed << "/" << hidden
-                  << "\n"
+                  << "  context/layers/heads/embed/hidden: " << context << "/" << layers << "/"
+                  << heads << "/" << embed << "/" << hidden << "\n"
                   << "  batch/steps/lr: " << batch_size << "/" << steps << "/" << learning_rate
                   << "\n";
 
@@ -128,4 +132,3 @@ int main(int argc, char** argv) {
         return 1;
     }
 }
-

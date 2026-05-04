@@ -101,22 +101,22 @@ Batch make_batch(const std::vector<int>& data,
                  std::size_t context,
                  std::size_t batch_size,
                  std::mt19937& rng) {
-    if (data.size() <= context) {
-        throw std::runtime_error("not enough data to create a batch");
+    if (data.size() <= context + 1) {
+        throw std::runtime_error("not enough data to create full-sequence targets");
     }
 
     std::uniform_int_distribution<std::size_t> start_dist(0, data.size() - context - 1);
     Batch batch;
     batch.batch_size = batch_size;
     batch.x.resize(batch_size * context);
-    batch.y.resize(batch_size);
+    batch.y.resize(batch_size * context);
 
     for (std::size_t b = 0; b < batch_size; ++b) {
         const std::size_t start = start_dist(rng);
         for (std::size_t t = 0; t < context; ++t) {
             batch.x[b * context + t] = data[start + t];
+            batch.y[b * context + t] = data[start + t + 1];
         }
-        batch.y[b] = data[start + context];
     }
 
     return batch;

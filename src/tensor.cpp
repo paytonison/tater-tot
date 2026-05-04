@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numeric>
 #include <sstream>
 #include <stdexcept>
@@ -398,6 +399,39 @@ Tensor relu(const Tensor& x) {
                           });
 }
 
+Tensor gelu(const Tensor& x) {
+    require_defined(x, "x");
+    constexpr double kCubic = 0.044715;
+    const double kScale = std::sqrt(2.0 / std::acos(-1.0));
+
+    std::vector<double> out(x.size());
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        const double v = x.data()[i];
+        const double inner = kScale * (v + kCubic * v * v * v);
+        out[i] = 0.5 * v * (1.0 + std::tanh(inner));
+    }
+
+    return Tensor::create(std::move(out), x.shape(), x.requires_grad(), "gelu", {x},
+                          [x, kScale](Tensor::Node& self) {
+                              if (!x.requires_grad()) {
+                                  return;
+                              }
+                              constexpr double kCubicBackward = 0.044715;
+                              for (std::size_t i = 0; i < self.grad.size(); ++i) {
+                                  const double v = x.data()[i];
+                                  const double inner =
+                                      kScale * (v + kCubicBackward * v * v * v);
+                                  const double tanh_inner = std::tanh(inner);
+                                  const double sech2 = 1.0 - tanh_inner * tanh_inner;
+                                  const double d_inner =
+                                      kScale * (1.0 + 3.0 * kCubicBackward * v * v);
+                                  const double local_grad =
+                                      0.5 * (1.0 + tanh_inner) + 0.5 * v * sech2 * d_inner;
+                                  x.node()->grad[i] += self.grad[i] * local_grad;
+                              }
+                          });
+}
+
 Tensor exp(const Tensor& x) {
     require_defined(x, "x");
     std::vector<double> out(x.size());
@@ -506,6 +540,326 @@ Tensor embedding_lookup(const Tensor& table, const std::vector<int>& indices) {
                                   }
                               }
                           });
+}
+
+Tensor layer_norm(const Tensor& x, const Tensor& gamma, const Tensor& beta, double eps) {
+    require_defined(x, "x");
+    require_defined(gamma, "gamma");
+    require_defined(beta, "beta");
+    require_rank(x, 2, "layer_norm");
+    require_rank(gamma, 1, "layer_norm");
+    require_rank(beta, 1, "layer_norm");
+    if (eps <= 0.0) {
+        throw std::runtime_error("layer_norm eps must be positive");
+    }
+
+    const std::size_t rows = x.shape()[0];
+    const std::size_t dim = x.shape()[1];
+    if (gamma.shape()[0] != dim || beta.shape()[0] != dim) {
+        throw std::runtime_error("layer_norm parameter shape mismatch: x " +
+                                 shape_to_string(x.shape()) + ", gamma " +
+                                 shape_to_string(gamma.shape()) + ", beta " +
+                                 shape_to_string(beta.shape()));
+    }
+
+    std::vector<double> normalized(x.size(), 0.0);
+    std::vector<double> inv_std(rows, 0.0);
+    std::vector<double> out(x.size(), 0.0);
+
+    for (std::size_t row = 0; row < rows; ++row) {
+        const std::size_t base = row * dim;
+        double mean_value = 0.0;
+        for (std::size_t d = 0; d < dim; ++d) {
+            mean_value += x.data()[base + d];
+        }
+        mean_value /= static_cast<double>(dim);
+
+        double variance = 0.0;
+        for (std::size_t d = 0; d < dim; ++d) {
+            const double centered = x.data()[base + d] - mean_value;
+            variance += centered * centered;
+        }
+        variance /= static_cast<double>(dim);
+        inv_std[row] = 1.0 / std::sqrt(variance + eps);
+
+        for (std::size_t d = 0; d < dim; ++d) {
+            const std::size_t idx = base + d;
+            normalized[idx] = (x.data()[idx] - mean_value) * inv_std[row];
+            out[idx] = normalized[idx] * gamma.data()[d] + beta.data()[d];
+        }
+    }
+
+    const bool requires_grad = x.requires_grad() || gamma.requires_grad() || beta.requires_grad();
+    return Tensor::create(std::move(out), x.shape(), requires_grad, "layer_norm", {x, gamma, beta},
+                          [x, gamma, beta, normalized, inv_std, rows, dim](Tensor::Node& self) {
+                              if (gamma.requires_grad() || beta.requires_grad()) {
+                                  for (std::size_t row = 0; row < rows; ++row) {
+                                      const std::size_t base = row * dim;
+                                      for (std::size_t d = 0; d < dim; ++d) {
+                                          const std::size_t idx = base + d;
+                                          if (gamma.requires_grad()) {
+                                              gamma.node()->grad[d] +=
+                                                  self.grad[idx] * normalized[idx];
+                                          }
+                                          if (beta.requires_grad()) {
+                                              beta.node()->grad[d] += self.grad[idx];
+                                          }
+                                      }
+                                  }
+                              }
+
+                              if (!x.requires_grad()) {
+                                  return;
+                              }
+
+                              for (std::size_t row = 0; row < rows; ++row) {
+                                  const std::size_t base = row * dim;
+                                  double sum_dxhat = 0.0;
+                                  double sum_dxhat_xhat = 0.0;
+                                  for (std::size_t d = 0; d < dim; ++d) {
+                                      const std::size_t idx = base + d;
+                                      const double dxhat = self.grad[idx] * gamma.data()[d];
+                                      sum_dxhat += dxhat;
+                                      sum_dxhat_xhat += dxhat * normalized[idx];
+                                  }
+
+                                  const double scale = inv_std[row] / static_cast<double>(dim);
+                                  for (std::size_t d = 0; d < dim; ++d) {
+                                      const std::size_t idx = base + d;
+                                      const double dxhat = self.grad[idx] * gamma.data()[d];
+                                      x.node()->grad[idx] +=
+                                          scale *
+                                          (static_cast<double>(dim) * dxhat - sum_dxhat -
+                                           normalized[idx] * sum_dxhat_xhat);
+                                  }
+                              }
+                          });
+}
+
+namespace {
+
+std::size_t attention_offset(std::size_t batch,
+                             std::size_t time,
+                             std::size_t head,
+                             std::size_t dim,
+                             std::size_t context,
+                             std::size_t heads,
+                             std::size_t head_dim) {
+    return (batch * context + time) * heads * head_dim + head * head_dim + dim;
+}
+
+Tensor causal_attention_core(const Tensor& q,
+                             const Tensor& k,
+                             const Tensor& v,
+                             std::size_t batch_size,
+                             std::size_t context,
+                             std::size_t heads) {
+    require_defined(q, "q");
+    require_defined(k, "k");
+    require_defined(v, "v");
+    require_rank(q, 2, "causal_attention_core");
+    require_rank(k, 2, "causal_attention_core");
+    require_rank(v, 2, "causal_attention_core");
+    if (batch_size == 0 || context == 0 || heads == 0) {
+        throw std::runtime_error("causal attention batch_size, context, and heads must be non-zero");
+    }
+    if (q.shape() != k.shape() || q.shape() != v.shape()) {
+        throw std::runtime_error("causal attention q/k/v shape mismatch");
+    }
+    if (q.shape()[0] != batch_size * context) {
+        throw std::runtime_error("causal attention input rows must equal batch_size * context");
+    }
+    const std::size_t embed = q.shape()[1];
+    if (embed == 0 || embed % heads != 0) {
+        throw std::runtime_error("causal attention requires embed divisible by heads");
+    }
+
+    const std::size_t head_dim = embed / heads;
+    const double score_scale = 1.0 / std::sqrt(static_cast<double>(head_dim));
+    std::vector<double> out(q.size(), 0.0);
+    std::vector<double> probabilities(batch_size * heads * context * context, 0.0);
+
+    for (std::size_t b = 0; b < batch_size; ++b) {
+        for (std::size_t h = 0; h < heads; ++h) {
+            for (std::size_t t = 0; t < context; ++t) {
+                // Causal masking is enforced by only visiting source positions s <= t.
+                // Later positions are never scored, so their probability remains exactly zero.
+                double max_score = -std::numeric_limits<double>::infinity();
+                for (std::size_t s = 0; s <= t; ++s) {
+                    double dot = 0.0;
+                    for (std::size_t d = 0; d < head_dim; ++d) {
+                        dot += q.data()[attention_offset(b, t, h, d, context, heads, head_dim)] *
+                               k.data()[attention_offset(b, s, h, d, context, heads, head_dim)];
+                    }
+                    const double score = dot * score_scale;
+                    probabilities[((b * heads + h) * context + t) * context + s] = score;
+                    max_score = std::max(max_score, score);
+                }
+
+                double sum_exp = 0.0;
+                for (std::size_t s = 0; s <= t; ++s) {
+                    const std::size_t prob_idx =
+                        ((b * heads + h) * context + t) * context + s;
+                    const double exp_score = std::exp(probabilities[prob_idx] - max_score);
+                    probabilities[prob_idx] = exp_score;
+                    sum_exp += exp_score;
+                }
+
+                for (std::size_t s = 0; s <= t; ++s) {
+                    const std::size_t prob_idx =
+                        ((b * heads + h) * context + t) * context + s;
+                    const double prob = probabilities[prob_idx] / sum_exp;
+                    probabilities[prob_idx] = prob;
+                    for (std::size_t d = 0; d < head_dim; ++d) {
+                        out[attention_offset(b, t, h, d, context, heads, head_dim)] +=
+                            prob *
+                            v.data()[attention_offset(b, s, h, d, context, heads, head_dim)];
+                    }
+                }
+            }
+        }
+    }
+
+    const bool requires_grad = q.requires_grad() || k.requires_grad() || v.requires_grad();
+    return Tensor::create(std::move(out),
+                          q.shape(),
+                          requires_grad,
+                          "causal_attention_core",
+                          {q, k, v},
+                          [q,
+                           k,
+                           v,
+                           probabilities,
+                           batch_size,
+                           context,
+                           heads,
+                           head_dim,
+                           score_scale](Tensor::Node& self) {
+                              std::vector<double> dprob(context, 0.0);
+
+                              for (std::size_t b = 0; b < batch_size; ++b) {
+                                  for (std::size_t h = 0; h < heads; ++h) {
+                                      for (std::size_t t = 0; t < context; ++t) {
+                                          std::fill(dprob.begin(), dprob.end(), 0.0);
+
+                                          for (std::size_t s = 0; s <= t; ++s) {
+                                              double grad_prob = 0.0;
+                                              for (std::size_t d = 0; d < head_dim; ++d) {
+                                                  const std::size_t out_idx = attention_offset(
+                                                      b, t, h, d, context, heads, head_dim);
+                                                  const std::size_t v_idx = attention_offset(
+                                                      b, s, h, d, context, heads, head_dim);
+                                                  grad_prob += self.grad[out_idx] * v.data()[v_idx];
+                                                  if (v.requires_grad()) {
+                                                      const double prob =
+                                                          probabilities[((b * heads + h) * context +
+                                                                         t) *
+                                                                            context +
+                                                                        s];
+                                                      v.node()->grad[v_idx] +=
+                                                          prob * self.grad[out_idx];
+                                                  }
+                                              }
+                                              dprob[s] = grad_prob;
+                                          }
+
+                                          double expected_grad_prob = 0.0;
+                                          for (std::size_t s = 0; s <= t; ++s) {
+                                              const double prob =
+                                                  probabilities[((b * heads + h) * context + t) *
+                                                                    context +
+                                                                s];
+                                              expected_grad_prob += dprob[s] * prob;
+                                          }
+
+                                          for (std::size_t s = 0; s <= t; ++s) {
+                                              const double prob =
+                                                  probabilities[((b * heads + h) * context + t) *
+                                                                    context +
+                                                                s];
+                                              // Softmax backward for the valid causal row:
+                                              // dscore_i = p_i * (dprob_i - sum_j dprob_j * p_j).
+                                              const double grad_score =
+                                                  prob * (dprob[s] - expected_grad_prob);
+                                              for (std::size_t d = 0; d < head_dim; ++d) {
+                                                  const std::size_t q_idx = attention_offset(
+                                                      b, t, h, d, context, heads, head_dim);
+                                                  const std::size_t k_idx = attention_offset(
+                                                      b, s, h, d, context, heads, head_dim);
+                                                  if (q.requires_grad()) {
+                                                      q.node()->grad[q_idx] +=
+                                                          grad_score * k.data()[k_idx] *
+                                                          score_scale;
+                                                  }
+                                                  if (k.requires_grad()) {
+                                                      k.node()->grad[k_idx] +=
+                                                          grad_score * q.data()[q_idx] *
+                                                          score_scale;
+                                                  }
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                          });
+}
+
+} // namespace
+
+Tensor causal_self_attention(const Tensor& x,
+                             const Tensor& wq,
+                             const Tensor& bq,
+                             const Tensor& wk,
+                             const Tensor& bk,
+                             const Tensor& wv,
+                             const Tensor& bv,
+                             const Tensor& wo,
+                             const Tensor& bo,
+                             std::size_t batch_size,
+                             std::size_t context,
+                             std::size_t heads) {
+    require_defined(x, "x");
+    require_defined(wq, "wq");
+    require_defined(bq, "bq");
+    require_defined(wk, "wk");
+    require_defined(bk, "bk");
+    require_defined(wv, "wv");
+    require_defined(bv, "bv");
+    require_defined(wo, "wo");
+    require_defined(bo, "bo");
+    require_rank(x, 2, "causal_self_attention");
+    require_rank(wq, 2, "causal_self_attention");
+    require_rank(wk, 2, "causal_self_attention");
+    require_rank(wv, 2, "causal_self_attention");
+    require_rank(wo, 2, "causal_self_attention");
+    require_rank(bq, 1, "causal_self_attention");
+    require_rank(bk, 1, "causal_self_attention");
+    require_rank(bv, 1, "causal_self_attention");
+    require_rank(bo, 1, "causal_self_attention");
+    if (batch_size == 0 || context == 0 || heads == 0) {
+        throw std::runtime_error("causal self-attention dimensions must be non-zero");
+    }
+    if (x.shape()[0] != batch_size * context) {
+        throw std::runtime_error("causal self-attention x rows must equal batch_size * context");
+    }
+
+    const std::size_t embed = x.shape()[1];
+    const Shape weight_shape{embed, embed};
+    const Shape bias_shape{embed};
+    if (wq.shape() != weight_shape || wk.shape() != weight_shape || wv.shape() != weight_shape ||
+        wo.shape() != weight_shape || bq.shape() != bias_shape || bk.shape() != bias_shape ||
+        bv.shape() != bias_shape || bo.shape() != bias_shape) {
+        throw std::runtime_error("causal self-attention projection shape mismatch");
+    }
+    if (embed % heads != 0) {
+        throw std::runtime_error("causal self-attention requires embed divisible by heads");
+    }
+
+    Tensor q = add(matmul(x, wq), bq);
+    Tensor k = add(matmul(x, wk), bk);
+    Tensor v = add(matmul(x, wv), bv);
+    Tensor attended = causal_attention_core(q, k, v, batch_size, context, heads);
+    return add(matmul(attended, wo), bo);
 }
 
 Tensor softmax_cross_entropy(const Tensor& logits, const std::vector<int>& targets) {

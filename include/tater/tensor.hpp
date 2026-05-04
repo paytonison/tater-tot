@@ -65,15 +65,28 @@ Tensor sum(const Tensor& x);
 Tensor mean(const Tensor& x);
 Tensor tanh(const Tensor& x);
 Tensor relu(const Tensor& x);
+Tensor gelu(const Tensor& x);
 Tensor exp(const Tensor& x);
 Tensor log(const Tensor& x);
 Tensor transpose(const Tensor& x);
 Tensor reshape(const Tensor& x, const Shape& shape);
 Tensor embedding_lookup(const Tensor& table, const std::vector<int>& indices);
+Tensor layer_norm(const Tensor& x, const Tensor& gamma, const Tensor& beta, double eps = 1e-5);
+Tensor causal_self_attention(const Tensor& x,
+                             const Tensor& wq,
+                             const Tensor& bq,
+                             const Tensor& wk,
+                             const Tensor& bk,
+                             const Tensor& wv,
+                             const Tensor& bv,
+                             const Tensor& wo,
+                             const Tensor& bo,
+                             std::size_t batch_size,
+                             std::size_t context,
+                             std::size_t heads);
 Tensor softmax_cross_entropy(const Tensor& logits, const std::vector<int>& targets);
 
 void zero_grad(const std::vector<Tensor*>& tensors);
 double clip_grad_norm(const std::vector<Tensor*>& tensors, double max_norm);
 
 } // namespace tater
-
