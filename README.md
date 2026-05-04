@@ -24,9 +24,11 @@ The project includes:
 
 ## Agent-Assisted One-Shot Development
 
-Tater Tot is also an experiment in agent-assisted programming. The initial version of the project was generated in a single Codex pass from high-level project instructions, and the later transformer upgrade was likewise produced as a one-shot architectural expansion.
+Tater Tot began as a human-originated project idea: a small, from-scratch language-model implementation intended to make transformer internals concrete, inspectable, and experimentally comparable to a conventional Python baseline.
 
-The goal is not to present the code as hand-authored line by line. Instead, this repository documents a workflow: human specification, agentic implementation, human review, debugging, training, evaluation, and iterative refinement.
+The initial version of the project was generated in a single Codex pass from high-level project instructions, and the later transformer upgrade was likewise produced as a one-shot architectural expansion.
+
+The goal is not to present the code as hand-authored line by line. Instead, this repository documents a workflow: human concept formation, specification, agentic implementation, human review, debugging, training, evaluation, and iterative refinement.
 
 This makes Tater Tot both a small language-model implementation and a case study in how coding agents can compress the distance between concept and working artifact. The human role shifts away from raw syntax production and toward architecture, constraint-setting, supervision, interpretation, and experimental design.
 
