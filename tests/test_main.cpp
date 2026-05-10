@@ -32,6 +32,45 @@ void expect_near(double actual, double expected, double tolerance, const std::st
     }
 }
 
+void expect_throws_containing(const std::function<void()>& fn,
+                              const std::string& expected,
+                              const std::string& message) {
+    try {
+        fn();
+        ++failures;
+        std::cerr << "FAIL: " << message << " did not throw\n";
+    } catch (const std::exception& error) {
+        if (std::string(error.what()).find(expected) == std::string::npos) {
+            ++failures;
+            std::cerr << "FAIL: " << message << " threw '" << error.what()
+                      << "' without expected text '" << expected << "'\n";
+        }
+    }
+}
+
+bool any_nonzero(const std::vector<double>& values, double tolerance = 1e-12) {
+    for (double value : values) {
+        if (std::abs(value) > tolerance) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool any_difference(const std::vector<double>& lhs,
+                    const std::vector<double>& rhs,
+                    double tolerance = 1e-12) {
+    if (lhs.size() != rhs.size()) {
+        return true;
+    }
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        if (std::abs(lhs[i] - rhs[i]) > tolerance) {
+            return true;
+        }
+    }
+    return false;
+}
+
 double finite_difference(const std::function<double(const std::vector<double>&)>& fn,
                          std::vector<double> values,
                          std::size_t index) {
@@ -259,6 +298,74 @@ void test_transformer_shape_loss_and_gradients() {
     }
 }
 
+void test_token_embedding_vectors_and_update() {
+    tater::ModelConfig config;
+    config.vocab_size = 5;
+    config.context = 4;
+    config.layers = 1;
+    config.heads = 2;
+    config.embed = 8;
+    config.hidden = 16;
+    tater::TinyCharModel model(config, 23);
+
+    expect_true(model.token_embedding.table.shape() == tater::Shape({config.vocab_size, config.embed}),
+                "token embedding table shape");
+    expect_true(model.positional_embedding.table.shape() == tater::Shape({config.context, config.embed}),
+                "positional embedding table shape");
+
+    tater::Tensor token_vectors = model.token_embedding.forward({0, 1});
+    expect_true(token_vectors.shape() == tater::Shape({2, config.embed}),
+                "token IDs map to d_model vectors");
+
+    bool distinct_rows = false;
+    for (std::size_t d = 0; d < config.embed; ++d) {
+        if (token_vectors.data()[d] != token_vectors.data()[config.embed + d]) {
+            distinct_rows = true;
+            break;
+        }
+    }
+    expect_true(distinct_rows, "different token IDs have different initialized embeddings");
+
+    const std::vector<double> before = model.token_embedding.table.data();
+    tater::Adam optimizer(model.parameters(), 0.05);
+    const std::vector<int> tokens = {0, 1, 2, 3, 1, 2, 3, 4};
+    const std::vector<int> targets = {1, 2, 3, 4, 2, 3, 4, 0};
+    tater::Tensor logits = model.forward(tokens, 2);
+    tater::Tensor loss = tater::softmax_cross_entropy(logits, targets);
+    optimizer.zero_grad();
+    loss.backward();
+
+    expect_true(any_nonzero(model.token_embedding.table.grad()),
+                "token embedding receives gradients");
+    optimizer.step(1.0);
+    expect_true(any_difference(before, model.token_embedding.table.data()),
+                "token embedding changes after optimizer step");
+}
+
+void test_embedding_bounds_checks() {
+    tater::ModelConfig config;
+    config.vocab_size = 4;
+    config.context = 4;
+    config.layers = 1;
+    config.heads = 2;
+    config.embed = 8;
+    config.hidden = 16;
+    tater::TinyCharModel model(config, 31);
+
+    expect_throws_containing(
+        [&model]() { (void)model.token_embedding.forward({-1}); },
+        "token_id out of range",
+        "negative token id is rejected");
+    expect_throws_containing(
+        [&model]() { (void)model.forward({0, 1, 2, 4}, 1); },
+        "token_id out of range",
+        "token id at vocab_size is rejected");
+    expect_throws_containing(
+        [&model, &config]() { (void)model.positional_embedding.forward(1, config.context + 1); },
+        "position out of range",
+        "position beyond max_seq_len is rejected");
+}
+
 void test_full_position_batch_targets() {
     const std::vector<int> data = {0, 1, 2, 3, 4, 0, 1, 2, 3, 4};
     std::mt19937 rng(5);
@@ -363,6 +470,8 @@ int main() {
         test_gelu_gradient();
         test_layer_norm_gradient();
         test_transformer_shape_loss_and_gradients();
+        test_token_embedding_vectors_and_update();
+        test_embedding_bounds_checks();
         test_full_position_batch_targets();
         test_checkpoint_round_trip();
         test_tiny_overfit();

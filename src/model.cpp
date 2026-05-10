@@ -77,12 +77,98 @@ const_blocks(const std::vector<TinyCharModel::TransformerBlock>& blocks) {
 
 } // namespace
 
+TokenEmbedding::TokenEmbedding(std::size_t vocab_size, std::size_t d_model, std::mt19937& rng) {
+    if (vocab_size == 0) {
+        throw std::runtime_error("token embedding vocab_size must be non-zero");
+    }
+    if (d_model == 0) {
+        throw std::runtime_error("token embedding d_model must be non-zero");
+    }
+    table = random_tensor({vocab_size, d_model}, 0.02, rng);
+}
+
+Tensor TokenEmbedding::forward(const std::vector<int>& token_ids) const {
+    const Shape& shape = table.shape();
+    if (shape.size() != 2) {
+        throw std::runtime_error("token embedding table must be rank 2");
+    }
+    for (int token_id : token_ids) {
+        if (token_id < 0 || static_cast<std::size_t>(token_id) >= shape[0]) {
+            throw std::runtime_error("token_id out of range for token embedding");
+        }
+    }
+    return embedding_lookup(table, token_ids);
+}
+
+std::size_t TokenEmbedding::vocab_size() const {
+    if (table.shape().size() != 2) {
+        throw std::runtime_error("token embedding table must be rank 2");
+    }
+    return table.shape()[0];
+}
+
+std::size_t TokenEmbedding::d_model() const {
+    if (table.shape().size() != 2) {
+        throw std::runtime_error("token embedding table must be rank 2");
+    }
+    return table.shape()[1];
+}
+
+PositionalEmbedding::PositionalEmbedding(std::size_t max_seq_len,
+                                         std::size_t d_model,
+                                         std::mt19937& rng) {
+    if (max_seq_len == 0) {
+        throw std::runtime_error("positional embedding max_seq_len must be non-zero");
+    }
+    if (d_model == 0) {
+        throw std::runtime_error("positional embedding d_model must be non-zero");
+    }
+    table = random_tensor({max_seq_len, d_model}, 0.02, rng);
+}
+
+Tensor PositionalEmbedding::forward(std::size_t batch_size, std::size_t sequence_length) const {
+    if (batch_size == 0) {
+        throw std::runtime_error("positional embedding batch_size must be non-zero");
+    }
+    if (sequence_length == 0) {
+        throw std::runtime_error("positional embedding sequence_length must be non-zero");
+    }
+    if (sequence_length > max_seq_len()) {
+        throw std::runtime_error("position out of range for positional embedding");
+    }
+    if (sequence_length - 1 > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+        throw std::runtime_error("position index does not fit in int");
+    }
+
+    std::vector<int> positions(batch_size * sequence_length);
+    for (std::size_t b = 0; b < batch_size; ++b) {
+        for (std::size_t t = 0; t < sequence_length; ++t) {
+            positions[b * sequence_length + t] = static_cast<int>(t);
+        }
+    }
+    return embedding_lookup(table, positions);
+}
+
+std::size_t PositionalEmbedding::max_seq_len() const {
+    if (table.shape().size() != 2) {
+        throw std::runtime_error("positional embedding table must be rank 2");
+    }
+    return table.shape()[0];
+}
+
+std::size_t PositionalEmbedding::d_model() const {
+    if (table.shape().size() != 2) {
+        throw std::runtime_error("positional embedding table must be rank 2");
+    }
+    return table.shape()[1];
+}
+
 TinyCharModel::TinyCharModel(ModelConfig config, std::uint32_t seed) : config_(config) {
     validate_config(config_);
 
     std::mt19937 rng(seed);
-    token_embedding = random_tensor({config_.vocab_size, config_.embed}, 0.02, rng);
-    positional_embedding = random_tensor({config_.context, config_.embed}, 0.02, rng);
+    token_embedding = TokenEmbedding(config_.vocab_size, config_.embed, rng);
+    positional_embedding = PositionalEmbedding(config_.context, config_.embed, rng);
 
     blocks.reserve(config_.layers);
     for (std::size_t layer = 0; layer < config_.layers; ++layer) {
@@ -138,15 +224,8 @@ Tensor TinyCharModel::forward(const std::vector<int>& tokens, std::size_t batch_
         throw std::runtime_error("model input token count does not match batch_size * context");
     }
 
-    std::vector<int> positions(tokens.size());
-    for (std::size_t b = 0; b < batch_size; ++b) {
-        for (std::size_t t = 0; t < config_.context; ++t) {
-            positions[b * config_.context + t] = static_cast<int>(t);
-        }
-    }
-
-    Tensor token_vectors = embedding_lookup(token_embedding, tokens);
-    Tensor position_vectors = embedding_lookup(positional_embedding, positions);
+    Tensor token_vectors = token_embedding.forward(tokens);
+    Tensor position_vectors = positional_embedding.forward(batch_size, config_.context);
     Tensor x = add(token_vectors, position_vectors);
 
     for (const TransformerBlock& block : blocks) {
@@ -180,8 +259,8 @@ Tensor TinyCharModel::forward(const std::vector<int>& tokens, std::size_t batch_
 std::vector<Tensor*> TinyCharModel::parameters() {
     std::vector<Tensor*> params;
     params.reserve(2 + blocks.size() * 16 + 4);
-    params.push_back(&token_embedding);
-    params.push_back(&positional_embedding);
+    params.push_back(&token_embedding.table);
+    params.push_back(&positional_embedding.table);
     for (TransformerBlock& block : blocks) {
         params.push_back(&block.ln1_gamma);
         params.push_back(&block.ln1_beta);
@@ -210,8 +289,8 @@ std::vector<Tensor*> TinyCharModel::parameters() {
 std::vector<const Tensor*> TinyCharModel::parameters() const {
     std::vector<const Tensor*> params;
     params.reserve(2 + blocks.size() * 16 + 4);
-    params.push_back(&token_embedding);
-    params.push_back(&positional_embedding);
+    params.push_back(&token_embedding.table);
+    params.push_back(&positional_embedding.table);
     for (const TransformerBlock& block : blocks) {
         params.push_back(&block.ln1_gamma);
         params.push_back(&block.ln1_beta);
@@ -240,8 +319,8 @@ std::vector<const Tensor*> TinyCharModel::parameters() const {
 std::vector<std::pair<std::string, Tensor*>> TinyCharModel::named_parameters() {
     std::vector<std::pair<std::string, Tensor*>> params;
     params.reserve(2 + blocks.size() * 16 + 4);
-    params.push_back({"token_embedding", &token_embedding});
-    params.push_back({"positional_embedding", &positional_embedding});
+    params.push_back({"token_embedding", &token_embedding.table});
+    params.push_back({"positional_embedding", &positional_embedding.table});
     for (auto [prefix, block] : mutable_blocks(blocks)) {
         params.push_back({prefix + ".ln1_gamma", &block->ln1_gamma});
         params.push_back({prefix + ".ln1_beta", &block->ln1_beta});
@@ -270,8 +349,8 @@ std::vector<std::pair<std::string, Tensor*>> TinyCharModel::named_parameters() {
 std::vector<std::pair<std::string, const Tensor*>> TinyCharModel::named_parameters() const {
     std::vector<std::pair<std::string, const Tensor*>> params;
     params.reserve(2 + blocks.size() * 16 + 4);
-    params.push_back({"token_embedding", &token_embedding});
-    params.push_back({"positional_embedding", &positional_embedding});
+    params.push_back({"token_embedding", &token_embedding.table});
+    params.push_back({"positional_embedding", &positional_embedding.table});
     for (auto [prefix, block] : const_blocks(blocks)) {
         params.push_back({prefix + ".ln1_gamma", &block->ln1_gamma});
         params.push_back({prefix + ".ln1_beta", &block->ln1_beta});

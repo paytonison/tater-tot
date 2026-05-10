@@ -3,6 +3,7 @@
 #include "tater/data.hpp"
 #include "tater/tensor.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <random>
 #include <string>
@@ -24,6 +25,28 @@ struct GenerationOptions {
     std::size_t tokens = 300;
     double temperature = 1.0;
     int top_k = 0;
+};
+
+struct TokenEmbedding {
+    Tensor table;
+
+    TokenEmbedding() = default;
+    TokenEmbedding(std::size_t vocab_size, std::size_t d_model, std::mt19937& rng);
+
+    Tensor forward(const std::vector<int>& token_ids) const;
+    std::size_t vocab_size() const;
+    std::size_t d_model() const;
+};
+
+struct PositionalEmbedding {
+    Tensor table;
+
+    PositionalEmbedding() = default;
+    PositionalEmbedding(std::size_t max_seq_len, std::size_t d_model, std::mt19937& rng);
+
+    Tensor forward(std::size_t batch_size, std::size_t sequence_length) const;
+    std::size_t max_seq_len() const;
+    std::size_t d_model() const;
 };
 
 class TinyCharModel {
@@ -61,8 +84,8 @@ public:
         Tensor ff2_b;
     };
 
-    Tensor token_embedding;
-    Tensor positional_embedding;
+    TokenEmbedding token_embedding;
+    PositionalEmbedding positional_embedding;
     std::vector<TransformerBlock> blocks;
     Tensor ln_f_gamma;
     Tensor ln_f_beta;
