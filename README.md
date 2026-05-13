@@ -369,6 +369,40 @@ See `benchmarks/README.md` for the exact default settings, output files, and
 caveats. Benchmark outputs, including the per-run CSV and summary CSV, are
 generated artifacts and are ignored by git.
 
+### Current Findings
+
+The completed 50-trial benchmark used seeds `1` through `50` with the default
+benchmark settings. In those runs, the C++ implementation is currently
+outperforming the pure-Python baseline in wall-clock speed:
+
+```text
+implementation  avg train sec  avg generate sec  avg train loss  avg val loss
+cpp                    1.340021          0.657506        3.465902      3.433631
+python                 7.237891          3.289465        3.450698      3.422890
+```
+
+That is about `5.4x` faster for training and `5.0x` faster for generation in
+this benchmark. The early C++ samples also appeared more sentence-shaped in the
+observed runs: C++ produced non-zero punctuation in `3` of `50` samples, while
+the Python baseline produced none in those same measured runs. This is a
+qualitative signal, not a proof of better language modeling. The Python run had
+slightly lower average train and validation loss, and model-quality conclusions
+need repeated seed-controlled benchmarks at meaningful training lengths.
+
+C++ is a strong fit for this project's AI goals because the core model is meant
+to be transparent and inspectable rather than hidden behind a framework. The C++
+path has low abstraction overhead, faster training and generation loops in the
+measured benchmark, explicit control over the tensor/autodiff/model internals,
+and a layout that makes memory, ownership, and performance costs easier to
+reason about. That makes it useful as the transparent experimental model core.
+
+The current C++ implementation is not more compact by raw source size. Counting
+the comparable implementation and CLI source sets, `include/tater`, `src`, and
+`examples` contain `12` files, `2,275` total lines, and `87,978` bytes. The
+Python baseline in `python/tater`, `python/tater_train.py`, and
+`python/tater_generate.py` contains `8` files, `1,768` total lines, and `57,616`
+bytes.
+
 ## Limitations
 
 - The model is tiny and character-level.
