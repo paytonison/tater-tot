@@ -369,6 +369,10 @@ See `benchmarks/README.md` for the exact default settings, output files, and
 caveats. Benchmark outputs, including the per-run CSV and summary CSV, are
 generated artifacts and are ignored by git.
 
+The system used to run the benchmark tests was an Apple M1 Max. All benchmark
+runs were performed on the CPU only, without GPU, Neural Engine, or other
+accelerator backends.
+
 ### Current Findings
 
 The completed 50-trial benchmark used seeds `1` through `50` with the default
