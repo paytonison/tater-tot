@@ -331,6 +331,37 @@ The current test suite covers:
 - tiny repeated-text overfit smoke test
 - generation smoke test
 
+## Benchmarks
+
+The `benchmarks/` directory contains a reproducible C++ vs. pure-Python
+comparison harness. It builds a shared corpus from `data/pg1998.txt` and
+`data/pg52124.txt` by default, runs both implementations with the same prompt,
+model settings, optimization settings, generation settings, and seed list, then
+writes a machine-readable CSV plus generated samples.
+
+```sh
+python3 benchmarks/run_cpp_vs_python.py
+```
+
+For a fast smoke check:
+
+```sh
+python3 benchmarks/run_cpp_vs_python.py \
+  --seeds 1 \
+  --steps 1 \
+  --eval-batches 1 \
+  --context 8 \
+  --embed 8 \
+  --layers 1 \
+  --heads 2 \
+  --hidden 16 \
+  --batch 2 \
+  --sample-length 32
+```
+
+See `benchmarks/README.md` for the exact default settings, output files, and
+caveats. Benchmark outputs are generated artifacts and are ignored by git.
+
 ## Limitations
 
 - The model is tiny and character-level.
@@ -360,7 +391,7 @@ Reasonable next improvements:
 - faster kernels for matrix multiplication and attention
 - optional CMake cleanup and install targets
 - richer sampling controls such as top-p and repetition penalties
-- a small benchmark corpus and repeatable benchmark script
+- richer benchmark summaries and visualizations
 
 Longer-term experimental roadmap:
 
