@@ -6,6 +6,7 @@ benchmarks/cpp_vs_python_corpus.txt
 benchmarks/logs/
 benchmarks/samples/
 benchmarks/tater_tot_cpp_vs_python.csv
+benchmarks/tater_tot_cpp_vs_python_summary.csv
 .DS_Store
 __pycache__/
 *.py[cod]

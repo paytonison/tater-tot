@@ -343,6 +343,12 @@ writes a machine-readable CSV plus generated samples.
 python3 benchmarks/run_cpp_vs_python.py
 ```
 
+For 50 trials per implementation:
+
+```sh
+python3 benchmarks/run_cpp_vs_python.py --trials 50
+```
+
 For a fast smoke check:
 
 ```sh
@@ -360,7 +366,8 @@ python3 benchmarks/run_cpp_vs_python.py \
 ```
 
 See `benchmarks/README.md` for the exact default settings, output files, and
-caveats. Benchmark outputs are generated artifacts and are ignored by git.
+caveats. Benchmark outputs, including the per-run CSV and summary CSV, are
+generated artifacts and are ignored by git.
 
 ## Limitations
 

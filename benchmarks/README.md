@@ -66,6 +66,12 @@ Run the default benchmark:
 python3 benchmarks/run_cpp_vs_python.py
 ```
 
+Run 50 trials per implementation, using seeds 1 through 50:
+
+```sh
+python3 benchmarks/run_cpp_vs_python.py --trials 50
+```
+
 Run a quick smoke pass:
 
 ```sh
@@ -85,12 +91,15 @@ python3 benchmarks/run_cpp_vs_python.py \
 The runner writes:
 
 - `benchmarks/tater_tot_cpp_vs_python.csv`
+- `benchmarks/tater_tot_cpp_vs_python_summary.csv`
 - `benchmarks/samples/*.txt`
 - `benchmarks/checkpoints/*.bin`
 - `benchmarks/logs/*.log`
 
 The CSV includes runtime, final train/validation loss, checkpoint name and
 SHA-256, generated sample text, and simple byte-level text-quality metrics.
+The summary CSV averages the numeric runtime, loss, and text-quality metrics by
+implementation.
 
 ## Caveats
 

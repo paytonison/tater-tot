@@ -21,6 +21,18 @@ LOSS_RE = re.compile(
     r"val_loss=(?P<val>[-+0-9.eE]+)"
 )
 PUNCTUATION_BYTES = {ord(ch) for ch in string.punctuation}
+SUMMARY_METRICS = [
+    "training_runtime_seconds",
+    "generation_runtime_seconds",
+    "final_train_loss",
+    "final_val_loss",
+    "sample_length",
+    "space_count",
+    "punctuation_count",
+    "average_span_length_between_spaces",
+    "repeated_character_rate",
+    "unique_character_count",
+]
 
 
 def parse_seeds(value: str) -> list[int]:
@@ -28,6 +40,51 @@ def parse_seeds(value: str) -> list[int]:
     if not seeds:
         raise argparse.ArgumentTypeError("at least one seed is required")
     return seeds
+
+
+def write_summary(rows: list[dict[str, str]], summary_path: Path) -> None:
+    grouped: dict[str, list[dict[str, str]]] = {}
+    for row in rows:
+        grouped.setdefault(row["implementation"], []).append(row)
+
+    fieldnames = ["implementation", "runs", *[f"avg_{metric}" for metric in SUMMARY_METRICS]]
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    with summary_path.open("w", newline="", encoding="utf-8") as out:
+        writer = csv.DictWriter(out, fieldnames=fieldnames)
+        writer.writeheader()
+        for implementation in sorted(grouped):
+            group = grouped[implementation]
+            summary = {
+                "implementation": implementation,
+                "runs": str(len(group)),
+            }
+            for metric in SUMMARY_METRICS:
+                average = sum(float(row[metric]) for row in group) / len(group)
+                summary[f"avg_{metric}"] = f"{average:.6f}"
+            writer.writerow(summary)
+
+
+def print_summary(rows: list[dict[str, str]]) -> None:
+    grouped: dict[str, list[dict[str, str]]] = {}
+    for row in rows:
+        grouped.setdefault(row["implementation"], []).append(row)
+
+    print("\nAverages", flush=True)
+    for implementation in sorted(grouped):
+        group = grouped[implementation]
+        train_time = sum(float(row["training_runtime_seconds"]) for row in group) / len(group)
+        gen_time = sum(float(row["generation_runtime_seconds"]) for row in group) / len(group)
+        train_loss = sum(float(row["final_train_loss"]) for row in group) / len(group)
+        val_loss = sum(float(row["final_val_loss"]) for row in group) / len(group)
+        repeat_rate = sum(float(row["repeated_character_rate"]) for row in group) / len(group)
+        unique_chars = sum(float(row["unique_character_count"]) for row in group) / len(group)
+        print(
+            f"  {implementation}: runs={len(group)} "
+            f"train_s={train_time:.6f} gen_s={gen_time:.6f} "
+            f"train_loss={train_loss:.6f} val_loss={val_loss:.6f} "
+            f"repeat_rate={repeat_rate:.6f} unique_chars={unique_chars:.6f}",
+            flush=True,
+        )
 
 
 def repo_path(value: str | Path) -> Path:
@@ -221,6 +278,11 @@ def parse_args() -> argparse.Namespace:
         description="Run a reproducible C++ vs. pure-Python Tater Tot benchmark."
     )
     parser.add_argument("--seeds", type=parse_seeds, default=parse_seeds(DEFAULT_SEEDS))
+    parser.add_argument(
+        "--trials",
+        type=int,
+        help="Use seeds 1..N for N benchmark trials per implementation.",
+    )
     parser.add_argument("--steps", type=int, default=25)
     parser.add_argument("--eval-batches", type=int, default=2)
     parser.add_argument("--context", type=int, default=16)
@@ -243,6 +305,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--corpus-output", default="benchmarks/cpp_vs_python_corpus.txt")
     parser.add_argument("--csv", default="benchmarks/tater_tot_cpp_vs_python.csv")
+    parser.add_argument("--summary-csv", default="benchmarks/tater_tot_cpp_vs_python_summary.csv")
     parser.add_argument("--sample-dir", default="benchmarks/samples")
     parser.add_argument("--checkpoint-dir", default="benchmarks/checkpoints")
     parser.add_argument("--log-dir", default="benchmarks/logs")
@@ -253,6 +316,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--python-generate", default="python/tater_generate.py")
     args = parser.parse_args()
 
+    if args.trials is not None:
+        if args.trials < 1:
+            parser.error("--trials must be at least 1")
+        args.seeds = list(range(1, args.trials + 1))
     if args.steps < 1:
         parser.error("--steps must be at least 1")
     if args.eval_batches < 1:
@@ -267,6 +334,7 @@ def main() -> int:
     corpus_parts = [repo_path(part) for part in args.corpus_parts]
     corpus = repo_path(args.corpus_output)
     csv_path = repo_path(args.csv)
+    summary_path = repo_path(args.summary_csv)
     sample_dir = repo_path(args.sample_dir)
     checkpoint_dir = repo_path(args.checkpoint_dir)
     log_dir = repo_path(args.log_dir)
@@ -321,6 +389,7 @@ def main() -> int:
         "unique_character_count",
     ]
 
+    rows: list[dict[str, str]] = []
     with csv_path.open("w", newline="", encoding="utf-8") as out:
         writer = csv.DictWriter(out, fieldnames=fieldnames)
         writer.writeheader()
@@ -364,9 +433,13 @@ def main() -> int:
                 add_common_row_fields(args, row, corpus, corpus_sha)
                 row.update(sample_metrics(generated))
                 writer.writerow(row)
+                rows.append(row)
                 out.flush()
 
+    write_summary(rows, summary_path)
+    print_summary(rows)
     print(f"wrote {display_path(csv_path)}", flush=True)
+    print(f"wrote {display_path(summary_path)}", flush=True)
     return 0
 
 
