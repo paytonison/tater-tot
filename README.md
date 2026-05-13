@@ -466,3 +466,12 @@ Longer-term experimental roadmap:
   - disagreement resolution
 
 This roadmap turns Tater Tot from a single tiny Transformer into a staged research artifact: first a C++ implementation, then a Python comparison target, then a controlled benchmark, and finally a handmade MoE architecture where multiple existing models act as experts coordinated by a mediator.
+
+## License
+
+The original Tater Tot source code and project documentation are licensed under
+the MIT License. See [LICENSE](LICENSE).
+
+Training corpora under `data/` are input texts and retain their original source
+terms. Verify those terms before redistributing the corpus files or derived
+datasets.
