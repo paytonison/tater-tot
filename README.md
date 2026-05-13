@@ -1,13 +1,13 @@
 # Tater Tot
 
 A tiny character-level decoder-only Transformer language model implemented from
-scratch in C++.
+scratch in C++ with a parallel standard-library Python port.
 
 Tater Tot is a compact GPT-style language model built to show the core mechanics
 of modern autoregressive Transformers without relying on PyTorch, TensorFlow,
 ONNX Runtime, CUDA, or another machine learning framework. It is intentionally
 small, educational, and architecture-focused: the point is to make the pieces of
-a Transformer visible in ordinary C++20.
+a Transformer visible in ordinary C++20 and plain Python.
 
 The project includes:
 
@@ -178,6 +178,16 @@ examples/generate.cpp
 tests/test_main.cpp
   Unit tests, gradient checks, Transformer shape checks, checkpoint round-trip,
   tiny overfit smoke test, and generation smoke test.
+
+python/tater/*.py
+python/tater_train.py
+python/tater_generate.py
+tests/test_python.py
+  A standard-library Python copy of the C++ implementation. It mirrors the same
+  Tensor/autodiff engine, byte-level data pipeline, Transformer model, Adam
+  optimizer, V2 binary checkpoint format, training CLI, generation CLI, and
+  Python smoke tests. It has no dependency on PyTorch, NumPy, or any other
+  third-party package.
 ```
 
 ## Build
@@ -196,6 +206,12 @@ The build creates:
 - `build/tater_generate`
 - `build/tater_tests`
 
+The Python port does not need a build step:
+
+```sh
+python3 tests/test_python.py
+```
+
 ## Train
 
 Put a plain text file at `data/input.txt`, or pass another text path with
@@ -203,6 +219,27 @@ Put a plain text file at `data/input.txt`, or pass another text path with
 
 ```sh
 ./build/tater_train \
+  --data data/input.txt \
+  --steps 1000 \
+  --context 64 \
+  --embed 64 \
+  --layers 2 \
+  --heads 4 \
+  --hidden 256 \
+  --batch 16 \
+  --lr 0.003 \
+  --clip 1.0 \
+  --print-every 50 \
+  --sample-every 200 \
+  --eval-batches 4 \
+  --checkpoint checkpoints/model.bin \
+  --seed 1337
+```
+
+The equivalent Python entry point accepts the same training options:
+
+```sh
+python3 python/tater_train.py \
   --data data/input.txt \
   --steps 1000 \
   --context 64 \
@@ -236,6 +273,18 @@ After training, generate text from a checkpoint:
 
 ```sh
 ./build/tater_generate \
+  --checkpoint checkpoints/model.bin \
+  --prompt "Once upon a time" \
+  --tokens 300 \
+  --temperature 0.9 \
+  --top-k 20 \
+  --seed 1337
+```
+
+The Python generator can load the same V2 checkpoint format:
+
+```sh
+python3 python/tater_generate.py \
   --checkpoint checkpoints/model.bin \
   --prompt "Once upon a time" \
   --tokens 300 \

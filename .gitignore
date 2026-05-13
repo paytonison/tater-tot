@@ -2,4 +2,5 @@ build/
 checkpoints/
 data/input.txt
 .DS_Store
-
+__pycache__/
+*.py[cod]
