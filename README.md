@@ -1,13 +1,13 @@
 # Tater Tot
 
 A tiny character-level decoder-only Transformer language model implemented from
-scratch in C++ with a parallel standard-library Python port.
+scratch in C++ with parallel standard-library Python and C ports.
 
 Tater Tot is a compact GPT-style language model built to show the core mechanics
 of modern autoregressive Transformers without relying on PyTorch, TensorFlow,
 ONNX Runtime, CUDA, or another machine learning framework. It is intentionally
 small, educational, and architecture-focused: the point is to make the pieces of
-a Transformer visible in ordinary C++20 and plain Python.
+a Transformer visible in ordinary C++20, C11, and plain Python.
 
 The project includes:
 
@@ -188,6 +188,17 @@ tests/test_python.py
   optimizer, V2 binary checkpoint format, training CLI, generation CLI, and
   Python smoke tests. It has no dependency on PyTorch, NumPy, or any other
   third-party package.
+
+Makefile
+tater_tot.h
+tater_tot.c
+train.c
+sample.c
+test_c.c
+  A clean C11 implementation of the same Transformer architecture. It keeps
+  tensor ownership, tape-owned forward-pass activations, model parameters, Adam
+  state, character data, checkpoint I/O, training, and sampling explicit in C
+  structs and loops.
 ```
 
 ## Build
@@ -211,6 +222,19 @@ The Python port does not need a build step:
 ```sh
 python3 tests/test_python.py
 ```
+
+The C port uses the top-level Makefile:
+
+```sh
+make
+make test
+```
+
+The C build creates:
+
+- `tater_train_c`
+- `tater_sample_c`
+- `tater_tests_c`
 
 ## Train
 
@@ -240,6 +264,27 @@ The equivalent Python entry point accepts the same training options:
 
 ```sh
 python3 python/tater_train.py \
+  --data data/input.txt \
+  --steps 1000 \
+  --context 64 \
+  --embed 64 \
+  --layers 2 \
+  --heads 4 \
+  --hidden 256 \
+  --batch 16 \
+  --lr 0.003 \
+  --clip 1.0 \
+  --print-every 50 \
+  --sample-every 200 \
+  --eval-batches 4 \
+  --checkpoint checkpoints/model.bin \
+  --seed 1337
+```
+
+The C training entry point accepts the same core options:
+
+```sh
+./tater_train_c \
   --data data/input.txt \
   --steps 1000 \
   --context 64 \
@@ -293,6 +338,18 @@ python3 python/tater_generate.py \
   --seed 1337
 ```
 
+The C sampler can also load the same V2 checkpoint format:
+
+```sh
+./tater_sample_c \
+  --checkpoint checkpoints/model.bin \
+  --prompt "Once upon a time" \
+  --tokens 300 \
+  --temperature 0.9 \
+  --top-k 20 \
+  --seed 1337
+```
+
 Generation prints the prompt followed by sampled characters. `temperature`
 controls randomness. `top-k` limits sampling to the most likely `k` characters
 when greater than zero.
@@ -317,6 +374,12 @@ Run the full local test binary through CTest:
 
 ```sh
 ctest --test-dir build --output-on-failure
+```
+
+Run the C sanity tests through Make:
+
+```sh
+make test
 ```
 
 The current test suite covers:
