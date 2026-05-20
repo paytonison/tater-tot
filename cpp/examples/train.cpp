@@ -37,9 +37,9 @@ double double_option(const std::vector<std::string>& args,
 }
 
 void print_usage() {
-    std::cerr << "Usage: tater_train --data data/input.txt --steps 1000 "
+    std::cerr << "Usage: tater_train --data ../data/input.txt --steps 1000 "
                  "--context 64 --embed 64 [--layers 2] [--heads 4] [--hidden 256] [--batch 16] "
-                 "[--lr 0.003] [--checkpoint checkpoints/model.bin]\n";
+                 "[--lr 0.003] [--checkpoint ../checkpoints/model.bin]\n";
 }
 
 } // namespace
@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
             return 0;
         }
 
-        const std::string data_path = option_value(args, "--data", "data/input.txt");
+        const std::string data_path = option_value(args, "--data", "../data/input.txt");
         const std::size_t steps = size_option(args, "--steps", 1000);
         const std::size_t context = size_option(args, "--context", 64);
         const std::size_t embed = size_option(args, "--embed", 64);
@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
         const double clip_norm = double_option(args, "--clip", 1.0);
         const std::uint32_t seed = static_cast<std::uint32_t>(size_option(args, "--seed", 1337));
         const std::string checkpoint_path =
-            option_value(args, "--checkpoint", "checkpoints/model.bin");
+            option_value(args, "--checkpoint", "../checkpoints/model.bin");
 
         const std::string text = tater::read_text_file(data_path);
         tater::Vocabulary vocab = tater::Vocabulary::from_text(text);

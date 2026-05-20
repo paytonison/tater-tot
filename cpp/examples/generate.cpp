@@ -35,7 +35,7 @@ double double_option(const std::vector<std::string>& args,
 }
 
 void print_usage() {
-    std::cerr << "Usage: tater_generate --checkpoint checkpoints/model.bin "
+    std::cerr << "Usage: tater_generate --checkpoint ../checkpoints/model.bin "
                  "--prompt \"Once upon a time\" --tokens 300 "
                  "[--temperature 1.0] [--top-k 0]\n";
 }
@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
         }
 
         const std::string checkpoint_path =
-            option_value(args, "--checkpoint", "checkpoints/model.bin");
+            option_value(args, "--checkpoint", "../checkpoints/model.bin");
         const std::string prompt = option_value(args, "--prompt", "");
         const std::size_t tokens = size_option(args, "--tokens", 300);
         const double temperature = double_option(args, "--temperature", 1.0);
@@ -73,4 +73,3 @@ int main(int argc, char** argv) {
         return 1;
     }
 }
-

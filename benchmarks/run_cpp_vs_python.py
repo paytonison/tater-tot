@@ -180,7 +180,10 @@ def train_command(args: argparse.Namespace, implementation: str, checkpoint: Pat
     if implementation == "cpp":
         executable = repo_path(args.cpp_train)
         if not executable.exists():
-            raise FileNotFoundError(f"missing C++ trainer: {executable}. Run cmake --build build first.")
+            raise FileNotFoundError(
+                f"missing C++ trainer: {executable}. "
+                "Run cmake -S cpp -B cpp/build && cmake --build cpp/build first."
+            )
         command = [str(executable)]
     else:
         command = [args.python, str(repo_path(args.python_train))]
@@ -226,7 +229,10 @@ def generate_command(args: argparse.Namespace, implementation: str, checkpoint: 
     if implementation == "cpp":
         executable = repo_path(args.cpp_generate)
         if not executable.exists():
-            raise FileNotFoundError(f"missing C++ generator: {executable}. Run cmake --build build first.")
+            raise FileNotFoundError(
+                f"missing C++ generator: {executable}. "
+                "Run cmake -S cpp -B cpp/build && cmake --build cpp/build first."
+            )
         command = [str(executable)]
     else:
         command = [args.python, str(repo_path(args.python_generate))]
@@ -309,8 +315,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-dir", default="benchmarks/samples")
     parser.add_argument("--checkpoint-dir", default="benchmarks/checkpoints")
     parser.add_argument("--log-dir", default="benchmarks/logs")
-    parser.add_argument("--cpp-train", default="build/tater_train")
-    parser.add_argument("--cpp-generate", default="build/tater_generate")
+    parser.add_argument("--cpp-train", default="cpp/build/tater_train")
+    parser.add_argument("--cpp-generate", default="cpp/build/tater_generate")
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument("--python-train", default="python/tater_train.py")
     parser.add_argument("--python-generate", default="python/tater_generate.py")

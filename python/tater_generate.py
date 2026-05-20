@@ -13,7 +13,7 @@ def parse_args() -> argparse.Namespace:
         prog="tater_generate.py",
         description="Generate text from a Tater Tot Transformer checkpoint.",
     )
-    parser.add_argument("--checkpoint", default="checkpoints/model.bin")
+    parser.add_argument("--checkpoint", default="../checkpoints/model.bin")
     parser.add_argument("--prompt", default="")
     parser.add_argument("--tokens", type=int, default=300)
     parser.add_argument("--temperature", type=float, default=1.0)

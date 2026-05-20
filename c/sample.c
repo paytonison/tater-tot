@@ -41,7 +41,7 @@ static double double_option(int argc, char **argv, const char *name, double fall
 
 static void print_usage(void) {
     fprintf(stderr,
-            "Usage: tater_sample_c --checkpoint checkpoints/model.bin "
+            "Usage: tater_sample_c --checkpoint ../checkpoints/model.bin "
             "--prompt \"Once upon a time\" --tokens 300 "
             "[--temperature 1.0] [--top-k 0]\n");
 }
@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
     int ok = 0;
 
     const char *checkpoint_path =
-        option_value(argc, argv, "--checkpoint", "checkpoints/model.bin");
+        option_value(argc, argv, "--checkpoint", "../checkpoints/model.bin");
     const char *prompt = option_value(argc, argv, "--prompt", "");
     uint32_t seed = (uint32_t)size_option(argc, argv, "--seed", 1337);
 

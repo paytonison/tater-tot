@@ -139,73 +139,37 @@ beam search, or repetition penalty.
 ## Project Structure
 
 ```text
-CMakeLists.txt
-  CMake build configuration for the library, training binary, generation binary,
-  and test binary.
+cpp/
+  C++20 implementation. Contains its own `CMakeLists.txt`, headers, sources,
+  training CLI, generation CLI, and C++ tests.
 
-include/tater/tensor.hpp
-src/tensor.cpp
-  Tensor object, shapes, reverse-mode autodiff, broadcasting, matrix multiply,
-  embeddings, GELU, LayerNorm, causal self-attention, softmax cross-entropy,
-  gradient zeroing, and gradient clipping.
+python/
+  Standard-library Python implementation. Contains the `tater` package,
+  training CLI, generation CLI, and Python tests. It has no dependency on
+  PyTorch, NumPy, or any other third-party package.
 
-include/tater/model.hpp
-src/model.cpp
-  ModelConfig, TinyCharModel, Transformer block parameters, initialization,
-  forward pass, named parameter access, sampling, text generation, and loss
-  estimation.
+c/
+  C11 implementation. Contains its own `Makefile`, header, source, training
+  CLI, sampling CLI, and C tests.
 
-include/tater/data.hpp
-src/data.cpp
-  Character vocabulary construction, encoding/decoding, text loading,
-  train/validation splitting, and full-position batch creation.
+data/
+  Shared plain-text training corpora.
 
-include/tater/optimizer.hpp
-src/optimizer.cpp
-  Adam optimizer implementation.
+checkpoints/
+  Shared local checkpoint output directory. This directory is ignored by git.
 
-include/tater/checkpoint.hpp
-src/checkpoint.cpp
-  Checkpoint save/load for Transformer config, vocabulary, and named parameter
-  tensors.
-
-examples/train.cpp
-  `tater_train` CLI entry point and training loop.
-
-examples/generate.cpp
-  `tater_generate` CLI entry point for loading a checkpoint and sampling text.
-
-tests/test_main.cpp
-  Unit tests, gradient checks, Transformer shape checks, checkpoint round-trip,
-  tiny overfit smoke test, and generation smoke test.
-
-python/tater/*.py
-python/tater_train.py
-python/tater_generate.py
-tests/test_python.py
-  A standard-library Python copy of the C++ implementation. It mirrors the same
-  Tensor/autodiff engine, byte-level data pipeline, Transformer model, Adam
-  optimizer, V2 binary checkpoint format, training CLI, generation CLI, and
-  Python smoke tests. It has no dependency on PyTorch, NumPy, or any other
-  third-party package.
-
-Makefile
-tater_tot.h
-tater_tot.c
-train.c
-sample.c
-test_c.c
-  A clean C11 implementation of the same Transformer architecture. It keeps
-  tensor ownership, tape-owned forward-pass activations, model parameters, Adam
-  state, character data, checkpoint I/O, training, and sampling explicit in C
-  structs and loops.
+benchmarks/
+  Cross-language benchmark harness and benchmark documentation.
 ```
 
 ## Build
 
-The project uses CMake and the C++20 standard library.
+Each implementation can be built or tested from its own directory.
+
+C++ uses CMake and the C++20 standard library:
 
 ```sh
+cd cpp
 cmake -S . -B build
 cmake --build build
 ctest --test-dir build --output-on-failure
@@ -213,28 +177,30 @@ ctest --test-dir build --output-on-failure
 
 The build creates:
 
-- `build/tater_train`
-- `build/tater_generate`
-- `build/tater_tests`
+- `cpp/build/tater_train`
+- `cpp/build/tater_generate`
+- `cpp/build/tater_tests`
 
 The Python port does not need a build step:
 
 ```sh
+cd python
 python3 tests/test_python.py
 ```
 
-The C port uses the top-level Makefile:
+The C port uses its own Makefile:
 
 ```sh
+cd c
 make
 make test
 ```
 
 The C build creates:
 
-- `tater_train_c`
-- `tater_sample_c`
-- `tater_tests_c`
+- `c/tater_train_c`
+- `c/tater_sample_c`
+- `c/tater_tests_c`
 
 ## Train
 
@@ -242,8 +208,9 @@ Put a plain text file at `data/input.txt`, or pass another text path with
 `--data`.
 
 ```sh
+cd cpp
 ./build/tater_train \
-  --data data/input.txt \
+  --data ../data/input.txt \
   --steps 1000 \
   --context 64 \
   --embed 64 \
@@ -256,15 +223,16 @@ Put a plain text file at `data/input.txt`, or pass another text path with
   --print-every 50 \
   --sample-every 200 \
   --eval-batches 4 \
-  --checkpoint checkpoints/model.bin \
+  --checkpoint ../checkpoints/model.bin \
   --seed 1337
 ```
 
 The equivalent Python entry point accepts the same training options:
 
 ```sh
-python3 python/tater_train.py \
-  --data data/input.txt \
+cd python
+python3 tater_train.py \
+  --data ../data/input.txt \
   --steps 1000 \
   --context 64 \
   --embed 64 \
@@ -277,15 +245,16 @@ python3 python/tater_train.py \
   --print-every 50 \
   --sample-every 200 \
   --eval-batches 4 \
-  --checkpoint checkpoints/model.bin \
+  --checkpoint ../checkpoints/model.bin \
   --seed 1337
 ```
 
 The C training entry point accepts the same core options:
 
 ```sh
+cd c
 ./tater_train_c \
-  --data data/input.txt \
+  --data ../data/input.txt \
   --steps 1000 \
   --context 64 \
   --embed 64 \
@@ -298,7 +267,7 @@ The C training entry point accepts the same core options:
   --print-every 50 \
   --sample-every 200 \
   --eval-batches 4 \
-  --checkpoint checkpoints/model.bin \
+  --checkpoint ../checkpoints/model.bin \
   --seed 1337
 ```
 
@@ -317,8 +286,9 @@ Important model constraints:
 After training, generate text from a checkpoint:
 
 ```sh
+cd cpp
 ./build/tater_generate \
-  --checkpoint checkpoints/model.bin \
+  --checkpoint ../checkpoints/model.bin \
   --prompt "Once upon a time" \
   --tokens 300 \
   --temperature 0.9 \
@@ -329,8 +299,9 @@ After training, generate text from a checkpoint:
 The Python generator can load the same V2 checkpoint format:
 
 ```sh
-python3 python/tater_generate.py \
-  --checkpoint checkpoints/model.bin \
+cd python
+python3 tater_generate.py \
+  --checkpoint ../checkpoints/model.bin \
   --prompt "Once upon a time" \
   --tokens 300 \
   --temperature 0.9 \
@@ -341,8 +312,9 @@ python3 python/tater_generate.py \
 The C sampler can also load the same V2 checkpoint format:
 
 ```sh
+cd c
 ./tater_sample_c \
-  --checkpoint checkpoints/model.bin \
+  --checkpoint ../checkpoints/model.bin \
   --prompt "Once upon a time" \
   --tokens 300 \
   --temperature 0.9 \
@@ -373,13 +345,22 @@ loading mismatched parameters.
 Run the full local test binary through CTest:
 
 ```sh
+cd cpp
 ctest --test-dir build --output-on-failure
 ```
 
 Run the C sanity tests through Make:
 
 ```sh
+cd c
 make test
+```
+
+Run the Python smoke tests from the Python implementation directory:
+
+```sh
+cd python
+python3 tests/test_python.py
 ```
 
 The current test suite covers:
@@ -403,6 +384,10 @@ model settings, optimization settings, generation settings, and seed list, then
 writes a machine-readable CSV plus generated samples.
 
 ```sh
+cd cpp
+cmake -S . -B build
+cmake --build build
+cd ..
 python3 benchmarks/run_cpp_vs_python.py
 ```
 
@@ -464,8 +449,9 @@ and a layout that makes memory, ownership, and performance costs easier to
 reason about. That makes it useful as the transparent experimental model core.
 
 The current C++ implementation is not more compact by raw source size. Counting
-the comparable implementation and CLI source sets, `include/tater`, `src`, and
-`examples` contain `12` files, `2,275` total lines, and `87,978` bytes. The
+the comparable implementation and CLI source sets, `cpp/include/tater`,
+`cpp/src`, and `cpp/examples` contain `12` files, `2,275` total lines, and
+`87,978` bytes. The
 Python baseline in `python/tater`, `python/tater_train.py`, and
 `python/tater_generate.py` contains `8` files, `1,768` total lines, and `57,616`
 bytes.

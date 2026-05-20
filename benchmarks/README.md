@@ -5,8 +5,8 @@ Python port using the same command-line settings and the same generated corpus.
 
 ## What Is Compared
 
-- C++ trainer: `build/tater_train`
-- C++ generator: `build/tater_generate`
+- C++ trainer: `cpp/build/tater_train`
+- C++ generator: `cpp/build/tater_generate`
 - Python trainer: `python/tater_train.py`
 - Python generator: `python/tater_generate.py`
 
@@ -54,10 +54,13 @@ substantial benchmark once the short pass works.
 Build and test first:
 
 ```sh
+cd cpp
 cmake -S . -B build
 cmake --build build
 ctest --test-dir build --output-on-failure
+cd ../python
 python3 tests/test_python.py
+cd ..
 ```
 
 Run the default benchmark:

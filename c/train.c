@@ -41,9 +41,9 @@ static double double_option(int argc, char **argv, const char *name, double fall
 
 static void print_usage(void) {
     fprintf(stderr,
-            "Usage: tater_train_c --data data/input.txt --steps 1000 "
+            "Usage: tater_train_c --data ../data/input.txt --steps 1000 "
             "--context 64 --embed 64 [--layers 2] [--heads 4] [--hidden 256] "
-            "[--batch 16] [--lr 0.003] [--checkpoint checkpoints/model.bin]\n");
+            "[--batch 16] [--lr 0.003] [--checkpoint ../checkpoints/model.bin]\n");
 }
 
 int main(int argc, char **argv) {
@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
     TTRng rng;
     int ok = 0;
 
-    const char *data_path = option_value(argc, argv, "--data", "data/input.txt");
+    const char *data_path = option_value(argc, argv, "--data", "../data/input.txt");
     size_t steps = size_option(argc, argv, "--steps", 1000);
     size_t context = size_option(argc, argv, "--context", 64);
     size_t embed = size_option(argc, argv, "--embed", 64);
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     double clip_norm = double_option(argc, argv, "--clip", 1.0);
     uint32_t seed = (uint32_t)size_option(argc, argv, "--seed", 1337);
     const char *checkpoint_path =
-        option_value(argc, argv, "--checkpoint", "checkpoints/model.bin");
+        option_value(argc, argv, "--checkpoint", "../checkpoints/model.bin");
 
     tt_error_clear(&error);
     memset(&vocab, 0, sizeof(vocab));

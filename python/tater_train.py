@@ -26,7 +26,7 @@ def parse_args() -> argparse.Namespace:
         prog="tater_train.py",
         description="Train the standard-library Python Tater Tot Transformer.",
     )
-    parser.add_argument("--data", default="data/input.txt")
+    parser.add_argument("--data", default="../data/input.txt")
     parser.add_argument("--steps", type=int, default=1000)
     parser.add_argument("--context", type=int, default=64)
     parser.add_argument("--embed", type=int, default=64)
@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--print-every", type=int, default=50)
     parser.add_argument("--sample-every", type=int, default=200)
     parser.add_argument("--eval-batches", type=int, default=4)
-    parser.add_argument("--checkpoint", default="checkpoints/model.bin")
+    parser.add_argument("--checkpoint", default="../checkpoints/model.bin")
     parser.add_argument("--seed", type=int, default=1337)
     return parser.parse_args()
 

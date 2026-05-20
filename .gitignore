@@ -1,6 +1,10 @@
 build/
+cpp/build/
 checkpoints/
 data/input.txt
+c/tater_train_c
+c/tater_sample_c
+c/tater_tests_c
 benchmarks/checkpoints/
 benchmarks/cpp_vs_python_corpus.txt
 benchmarks/logs/
