@@ -1,5 +1,0 @@
-Tater Tot is a tiny language model.
-It learns character patterns from a small text file.
-Tiny models repeat simple structure when they overfit.
-Tater Tot says hello from modern C++.
-
