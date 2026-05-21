@@ -485,15 +485,18 @@ Reasonable next improvements:
 - faster kernels for matrix multiplication and attention
 - optional CMake cleanup and install targets
 - richer sampling controls such as top-p and repetition penalties
-- richer benchmark summaries and visualizations
+- include the C port in the benchmark harness
+- richer benchmark summaries, memory measurements, and visualizations
 
 Longer-term experimental roadmap:
 
 - **C++ Tater Tot baseline:** continue developing the current from-scratch C++ implementation as the primary systems-level reference model. The purpose is to keep the Transformer machinery visible, inspectable, and close to the hardware.
 
-- **Python Tater Tot baseline:** build a matching Python version using the same dataset, model shape, tokenizer assumptions, training schedule, and generation settings. This provides a conventional high-level implementation to compare against the C++ version.
+- **Python Tater Tot baseline:** keep the dependency-free Python port aligned with the C++ implementation. It already uses the same byte-level data model, checkpoint format, training options, and generation options, which makes it a useful high-level comparison target.
 
-- **Custom performance benchmark:** create a repeatable benchmark suite that compares the C++ and Python implementations across:
+- **C Tater Tot reference:** continue maturing the C11 port as a compact systems reference beside the C++ and Python implementations. The C port is useful for making allocation, ownership, and model mechanics explicit without C++ abstractions.
+
+- **Cross-language performance benchmark:** extend the existing C++ vs. Python benchmark harness into a broader comparison across the C++, C, and Python implementations. Useful dimensions include:
   - training speed
   - inference speed
   - memory use
@@ -501,7 +504,7 @@ Longer-term experimental roadmap:
   - validation loss / perplexity
   - qualitative generation samples from matched prompts
 
-  The goal is not merely to ask which language is faster in the abstract, but to measure which implementation produces better practical results under comparable constraints.
+  The goal is not merely to ask which language is faster in the abstract, but to measure what each implementation exposes, costs, and makes easier to inspect under comparable constraints.
 
 - **Handmade MoE experiment:** prototype a small mixture-of-experts system using existing Gemma-family models as external expert modules. Instead of training one monolithic model from scratch, the system would stitch together multiple specialized Gemma instances and route tasks between them.
 
@@ -518,7 +521,7 @@ Longer-term experimental roadmap:
   - routing accuracy
   - disagreement resolution
 
-This roadmap turns Tater Tot from a single tiny Transformer into a staged research artifact: first a C++ implementation, then a Python comparison target, then a controlled benchmark, and finally a handmade MoE architecture where multiple existing models act as experts coordinated by a mediator.
+This roadmap turns Tater Tot from a single tiny Transformer into a staged research artifact: a C++ implementation, matching Python and C comparison targets, a controlled benchmark suite, and finally a handmade MoE architecture where multiple existing models act as experts coordinated by a mediator.
 
 ## License
 
